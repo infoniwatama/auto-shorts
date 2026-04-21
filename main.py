@@ -1,0 +1,186 @@
+"""auto-shorts オーケストレーター（ジャンル切替対応）
+
+使い方:
+  python main.py --genre horror "深夜のコンビニで起きた不可解な出来事"
+  python main.py --genre ai_news "OpenAIが新モデル発表"
+  python main.py --script output/scripts/horror_20260421_120000.json   # 既存台本から再生成
+"""
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+
+# Windows cp932 対策: stdout/stderrをUTF-8に
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
+import config
+import script_gen
+import tts
+import image_gen
+import video_assemble
+import thumbnail_gen
+from genres import load_genre, list_genres
+
+
+def _infer_genre_from_script_path(path: str) -> str:
+    """script_genが付ける命名規則 <genre>_<timestamp>.json から genre を抽出"""
+    stem = Path(path).stem
+    m = re.match(r"^([a-z_]+)_\d{8}_\d{6}$", stem)
+    if m:
+        return m.group(1)
+    raise ValueError(
+        f"genreを推定できないscriptファイル名: {stem}\n"
+        f"  --genre オプションで明示してください"
+    )
+
+
+def run(genre_name: str, theme: str | None = None, existing_script_path: str | None = None) -> Path:
+    config.ensure_dirs()
+    genre = load_genre(genre_name)
+
+    if not tts.voicevox_alive():
+        print(f"❌ VOICEVOX が起動していません ({config.VOICEVOX_HOST})")
+        print("   VOICEVOXアプリを起動してから再実行してください")
+        sys.exit(1)
+    ok, err = image_gen.backend_alive()
+    if not ok:
+        print(f"❌ 画像バックエンド: {err}")
+        sys.exit(1)
+    print(f"🖼️ 画像バックエンド: {config.IMAGE_BACKEND}")
+
+    if existing_script_path:
+        print(f"📜 既存台本を使用: {existing_script_path}")
+        # ファイル名 <genre>_<timestamp> から timestamp 部分のみ抽出
+        stem = Path(existing_script_path).stem
+        m = re.match(r"^[a-z_]+_(\d{8}_\d{6})$", stem)
+        ts_from_name = m.group(1) if m else stem
+        # run_dir/script.json を優先して読む（attribution等を保存した enriched 版）
+        enriched_path = config.OUT_VIDEOS / ts_from_name / "script.json"
+        if enriched_path.exists():
+            print(f"   enriched版を発見: {enriched_path}")
+            script = json.loads(enriched_path.read_text(encoding="utf-8"))
+        else:
+            script = json.loads(Path(existing_script_path).read_text(encoding="utf-8"))
+        script.setdefault("_meta", {})["timestamp"] = ts_from_name
+        script["_meta"]["genre"] = genre.NAME
+    else:
+        print(f"📜 [{genre.NAME}] Claude で台本生成中: {theme}")
+        script = script_gen.generate_script(theme, genre)
+        print(f"   → {script['_meta']['path']}")
+        print(f"   タイトル候補: {script['title_candidates']}")
+        print(f"   サムネ煽り: {script['thumbnail_text']}")
+        print(f"   シーン数: {len(script['scenes'])}")
+
+    ts = script["_meta"]["timestamp"]
+    run_dir = config.OUT_VIDEOS / ts
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"🔊 VOICEVOX で音声生成中（speaker={genre.VOICEVOX_SPEAKER_ID}）...")
+    audio_map = tts.synthesize_all(script, run_dir, genre)
+    print(f"   → {len(audio_map)} シーン分の音声を生成")
+
+    print(f"🎨 画像生成中（{config.IMAGE_BACKEND}）...")
+    image_map = image_gen.generate_all(script, run_dir, genre)
+    print(f"   → {len(image_map)} シーン分の画像を生成")
+
+    print("🎬 MoviePy で動画組立中...")
+    out_video = run_dir / f"{ts}_shorts.mp4"
+    video_assemble.assemble(script, audio_map, image_map, out_video, genre)
+
+    print("🖼️ サムネ自動生成中（下書き、本投稿前に手調整推奨）...")
+    out_thumb = run_dir / f"{ts}_thumb.png"
+    thumbnail_gen.generate_thumbnail(script, image_map, out_thumb, genre)
+
+    # YouTube概要欄（スタイリッシュ版）
+    import web_image_search as _wis
+    attrs = script.get("_attributions", [])
+    title = script["title_candidates"][0] if script.get("title_candidates") else ""
+    hook = script["scenes"][0]["narration"] if script.get("scenes") else ""
+    # ** マーカー除去
+    import re as _re
+    hook_clean = _re.sub(r"\*\*([^*]+?)\*\*", r"\1", hook).strip()
+    theme = script["_meta"].get("theme", "")[:300]
+
+    sep = "━━━━━━━━━━━━━━━━━━━━"
+    desc_lines = [
+        f"📡 {title}",
+        "",
+        sep,
+        "  AI速報 / AI Flash News",
+        "  AIが届ける、30秒ニュース。",
+        sep,
+        "",
+        "▼ 本日のヘッドライン",
+        f"　{hook_clean}",
+        "",
+        "▼ 詳細",
+        f"　{theme}",
+        "",
+        "▼ このチャンネルについて",
+        "　AIが世界中のニュースを厳選・要約し、",
+        "　30秒の報道調ショートにまとめてお届け。",
+        "　テック、経済、政治、エンタメ、国際、社会——",
+        "　ジャンル問わず、今この瞬間を速く、客観的に。",
+        "",
+        "#ニュース #速報 #Shorts #2026 #最新ニュース",
+        "",
+        sep,
+    ]
+    if attrs:
+        desc_lines.append("📸 Photo Credits")
+        desc_lines.append(_wis.build_attribution_block(attrs).lstrip("\n").lstrip("🖼️ Image Credits:\n"))
+        desc_lines.append("")
+        desc_lines.append(sep)
+
+    (run_dir / "youtube_description.txt").write_text(
+        "\n".join(desc_lines), encoding="utf-8"
+    )
+
+    (run_dir / "script.json").write_text(
+        json.dumps(script, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8",
+    )
+
+    print(f"\n✅ 完成: {out_video}")
+    print(f"🖼️  サムネ下書き: {out_thumb}")
+    print(f"   作業ディレクトリ: {run_dir}")
+    print(f"\n📌 タイトル候補:")
+    for t in script["title_candidates"]:
+        print(f"   - {t}")
+    print(f"📌 サムネ煽り文: {script['thumbnail_text']}")
+    if script.get("thumbnail_number"):
+        print(f"📌 サムネ大数字: {script['thumbnail_number']}")
+    print(f"\n💡 次のステップ:")
+    print(f"   1. 動画を確認 → 必要なら台本を手直しして --script で再生成")
+    print(f"   2. サムネを Canva 等で手作り（CTR半減リスクなので必須手動）")
+    print(f"   3. タイトル選定")
+    print(f"   4. YouTube Shorts として投稿")
+    return out_video
+
+
+def main():
+    parser = argparse.ArgumentParser(description="auto-shorts ジャンル別Shorts自動生成")
+    parser.add_argument("theme", nargs="?", help="台本のテーマ")
+    parser.add_argument("--genre", choices=list_genres(),
+                        help=f"ジャンル: {', '.join(list_genres())}")
+    parser.add_argument("--script", help="既存台本JSONから再生成（genreはファイル名から推定）")
+    args = parser.parse_args()
+
+    if not args.theme and not args.script:
+        parser.print_help()
+        sys.exit(1)
+
+    if args.script and not args.genre:
+        args.genre = _infer_genre_from_script_path(args.script)
+    if not args.genre:
+        print("❌ --genre を指定してください（例: --genre ai_news）")
+        sys.exit(1)
+
+    run(genre_name=args.genre, theme=args.theme, existing_script_path=args.script)
+
+
+if __name__ == "__main__":
+    main()

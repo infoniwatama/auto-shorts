@@ -1,0 +1,11 @@
+anthropic>=0.96
+python-dotenv>=1.0
+requests>=2.31
+moviepy>=2.1
+Pillow>=10.0
+janome>=0.5
+replicate>=1.0
+google-auth>=2.0
+google-auth-oauthlib>=1.0
+google-api-python-client>=2.0
+feedparser>=6.0

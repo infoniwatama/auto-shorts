@@ -1,0 +1,123 @@
+name: Daily AI Flash News
+
+on:
+  # 毎朝 6:00 JST = 21:00 UTC（前日）
+  schedule:
+    - cron: "0 21 * * *"
+  # 手動トリガー（テーマを直接指定可能）
+  workflow_dispatch:
+    inputs:
+      theme:
+        description: 'テーマを直接指定（空欄の場合は news_fetcher で自動選定）'
+        required: false
+        default: ''
+      privacy:
+        description: '公開設定'
+        required: true
+        default: 'private'
+        type: choice
+        options:
+          - private
+          - unlisted
+          - public
+
+jobs:
+  generate-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    services:
+      voicevox:
+        image: voicevox/voicevox_engine:cpu-ubuntu22.04-latest
+        ports:
+          - 50021:50021
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install ffmpeg + system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Wait for VOICEVOX engine ready
+        run: |
+          for i in {1..90}; do
+            if curl -sf http://localhost:50021/version >/dev/null 2>&1; then
+              echo "VOICEVOX ready (version: $(curl -s http://localhost:50021/version))"
+              exit 0
+            fi
+            sleep 4
+          done
+          echo "VOICEVOX did not become ready in time"; exit 1
+
+      - name: Write secrets to .env and credential files
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          YOUTUBE_CLIENT_SECRET_JSON: ${{ secrets.YOUTUBE_CLIENT_SECRET_JSON }}
+          YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+        run: |
+          cat > .env <<EOF
+          ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
+          REPLICATE_API_TOKEN=$REPLICATE_API_TOKEN
+          PEXELS_API_KEY=$PEXELS_API_KEY
+          UNSPLASH_ACCESS_KEY=$UNSPLASH_ACCESS_KEY
+          EOF
+          printf '%s' "$YOUTUBE_CLIENT_SECRET_JSON" > client_secret.json
+          printf '%s' "$YOUTUBE_TOKEN_JSON" > token.json
+
+      - name: Determine theme
+        id: theme
+        run: |
+          MANUAL_THEME='${{ github.event.inputs.theme }}'
+          if [ -n "$MANUAL_THEME" ]; then
+            echo "Manual theme provided"
+            echo "value<<__EOF__" >> "$GITHUB_OUTPUT"
+            echo "$MANUAL_THEME" >> "$GITHUB_OUTPUT"
+            echo "__EOF__" >> "$GITHUB_OUTPUT"
+          else
+            echo "Auto-fetching top news..."
+            THEME=$(python news_fetcher.py --json \
+              | python -c "import json,sys; d=json.load(sys.stdin); print(d['selected'][0]['theme_for_video'])")
+            echo "value<<__EOF__" >> "$GITHUB_OUTPUT"
+            echo "$THEME" >> "$GITHUB_OUTPUT"
+            echo "__EOF__" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate video
+        run: |
+          python main.py --genre ai_news "${{ steps.theme.outputs.value }}"
+
+      - name: Find latest run directory
+        id: rundir
+        run: |
+          RUN_DIR=$(ls -1tdr output/videos/*/ | tail -1)
+          echo "path=$RUN_DIR" >> "$GITHUB_OUTPUT"
+          echo "Latest run: $RUN_DIR"
+
+      - name: Upload to YouTube
+        run: |
+          PRIVACY='${{ github.event.inputs.privacy || ''private'' }}'
+          python youtube_upload.py "${{ steps.rundir.outputs.path }}" --privacy "$PRIVACY"
+
+      - name: Save outputs as artifact (debug用)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-${{ github.run_id }}
+          path: |
+            ${{ steps.rundir.outputs.path }}
+          retention-days: 7

@@ -1,0 +1,21 @@
+.env
+__pycache__/
+*.pyc
+output/
+
+# YouTube OAuth (Secretsで管理、コミットしない)
+client_secret.json
+token.json
+
+# テストファイル
+test_image.jpg
+test_unsplash.jpg
+test_voice.wav
+
+# MoviePy一時ファイル
+*_TEMP_MPY_*
+*TEMP_MPY*
+
+# BGM/SFX/Characters/Entities/Channel assets はリポジトリに含める
+# （GitHub Actionsが必要とする）
+# Fonts もリポジトリに含める（Noto Sans JP）
