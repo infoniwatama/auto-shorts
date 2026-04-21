@@ -139,19 +139,33 @@ def upload(run: dict, title: str, privacy: str, schedule_iso: str | None = None,
     video_id = response["id"]
     print(f"✅ アップ完了: https://youtu.be/{video_id}")
 
-    # サムネ設定
+    # サムネ設定（失敗してもメインは成功扱いにする）
     if run["thumb"]:
         print(f"🖼️  サムネ設定中: {run['thumb'].name}")
         try:
+            thumb_path = run["thumb"]
+            # YouTube サムネは 2MB上限。超過なら自動圧縮
+            max_bytes = 2 * 1024 * 1024
+            if thumb_path.stat().st_size > max_bytes:
+                from PIL import Image
+                compressed = thumb_path.with_suffix(".compressed.jpg")
+                img = Image.open(thumb_path).convert("RGB")
+                quality = 85
+                while quality >= 30:
+                    img.save(compressed, "JPEG", quality=quality, optimize=True)
+                    if compressed.stat().st_size <= max_bytes:
+                        break
+                    quality -= 10
+                print(f"   2MB超のため圧縮: {thumb_path.stat().st_size//1024}KB → {compressed.stat().st_size//1024}KB (q={quality})")
+                thumb_path = compressed
             yt.thumbnails().set(
                 videoId=video_id,
-                media_body=MediaFileUpload(str(run["thumb"])),
+                media_body=MediaFileUpload(str(thumb_path)),
             ).execute()
             print("   サムネ設定完了")
-        except HttpError as e:
-            # チャンネル認証前だとサムネ設定は失敗する場合がある
-            print(f"   ⚠️  サムネ設定失敗: {e}")
-            print("   YouTubeアカウントを電話番号で認証すると使えるようになります")
+        except Exception as e:
+            print(f"   ⚠️  サムネ設定スキップ: {e}")
+            print("   （電話番号認証 https://www.youtube.com/verify が未実施の可能性）")
 
     return {"video_id": video_id, "url": f"https://youtu.be/{video_id}"}
 
