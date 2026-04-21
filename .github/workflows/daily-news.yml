@@ -108,10 +108,16 @@ jobs:
           echo "path=$RUN_DIR" >> "$GITHUB_OUTPUT"
           echo "Latest run: $RUN_DIR"
 
+      - name: Determine privacy
+        id: privacy
+        run: |
+          P='${{ github.event.inputs.privacy }}'
+          if [ -z "$P" ]; then P=private; fi
+          echo "value=$P" >> "$GITHUB_OUTPUT"
+
       - name: Upload to YouTube
         run: |
-          PRIVACY='${{ github.event.inputs.privacy || ''private'' }}'
-          python youtube_upload.py "${{ steps.rundir.outputs.path }}" --privacy "$PRIVACY"
+          python youtube_upload.py "${{ steps.rundir.outputs.path }}" --privacy "${{ steps.privacy.outputs.value }}"
 
       - name: Save outputs as artifact (debug用)
         if: always()
