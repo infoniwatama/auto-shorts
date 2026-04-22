@@ -558,12 +558,14 @@ def assemble(script: dict, audio_map: dict, image_map: dict, out_path: Path, gen
             print(f"  [warn] bgm load failed: {e}")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    fps = getattr(genre, "VIDEO_FPS", config.VIDEO_FPS)
+    preset = getattr(genre, "VIDEO_PRESET", "medium")
     video.write_videofile(
         str(out_path),
         codec="libx264",
         audio_codec="aac",
-        fps=config.VIDEO_FPS,
-        preset="medium",
+        fps=fps,
+        preset=preset,
         threads=4,
     )
     return out_path

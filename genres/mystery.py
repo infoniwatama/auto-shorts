@@ -20,6 +20,10 @@ FLUX_ASPECT_RATIO = "16:9"   # FLUX生成も横
 THUMBNAIL_WIDTH = 1280
 THUMBNAIL_HEIGHT = 720
 
+# 長尺はエンコード時間短縮のため高速プリセット使用
+VIDEO_PRESET = "ultrafast"
+VIDEO_FPS = 24    # 30→24 でフレーム数 -20%
+
 # ===== VOICEVOX =====
 VOICEVOX_SPEAKER_ID = 29   # 白上虎太郎（ふつう、男性低音、不気味）
 VOICEVOX_SPEED = 0.95      # ゆっくり気味

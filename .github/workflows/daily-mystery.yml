@@ -38,7 +38,7 @@ concurrency:
 jobs:
   generate-and-upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 90    # 長尺なので余裕
+    timeout-minutes: 300    # 長尺(8-15分動画)生成に余裕
 
     services:
       voicevox:
