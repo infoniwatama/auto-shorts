@@ -34,9 +34,11 @@ def generate_script(theme: str, genre) -> dict:
     client = anthropic.Anthropic(api_key=api_key)
     prompt = genre.PROMPT_TEMPLATE.format(theme=theme)
 
+    # ジャンル毎のmax_tokens override（長尺は大きく取る）
+    max_tokens = getattr(genre, "CLAUDE_MAX_TOKENS", config.CLAUDE_MAX_TOKENS)
     msg = client.messages.create(
         model=config.CLAUDE_MODEL,
-        max_tokens=config.CLAUDE_MAX_TOKENS,
+        max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
     )
     raw = msg.content[0].text

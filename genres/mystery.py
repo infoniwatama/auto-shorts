@@ -8,6 +8,9 @@
 
 NAME = "mystery"
 
+# 長尺なので Claude の応答上限を大きく確保（30-45シーンのJSON）
+CLAUDE_MAX_TOKENS = 12000
+
 # ===== VOICEVOX =====
 VOICEVOX_SPEAKER_ID = 29   # 白上虎太郎（ふつう、男性低音、不気味）
 VOICEVOX_SPEED = 0.95      # ゆっくり気味
