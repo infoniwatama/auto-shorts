@@ -509,7 +509,14 @@ def _pick_bgm(genre) -> Path | None:
 
 
 def assemble(script: dict, audio_map: dict, image_map: dict, out_path: Path, genre) -> Path:
-    """全シーン結合→BGM乗せ→書き出し。shock直前に無音パッド挿入。"""
+    """全シーン結合→BGM乗せ→書き出し。shock直前に無音パッド挿入。
+    ジャンル別の VIDEO_WIDTH/HEIGHT があれば config に反映（縦/横切替対応）。"""
+    # ジャンル別動画サイズの適用（mysteryなら 1920x1080 横画面）
+    if hasattr(genre, "VIDEO_WIDTH"):
+        config.VIDEO_WIDTH = genre.VIDEO_WIDTH
+    if hasattr(genre, "VIDEO_HEIGHT"):
+        config.VIDEO_HEIGHT = genre.VIDEO_HEIGHT
+
     scenes = script["scenes"]
     scene_clips = []
     pad_sec = config.SILENCE_PAD_BEFORE_SHOCK

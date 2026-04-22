@@ -6,6 +6,8 @@ output/
 # YouTube OAuth (Secretsで管理、コミットしない)
 client_secret.json
 token.json
+token_*.json
+client_secret.json
 
 # テストファイル
 test_image.jpg

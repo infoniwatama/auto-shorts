@@ -135,9 +135,10 @@ def _generate_image_flux(prompt: str, out_path: Path, genre,
         raise RuntimeError("REPLICATE_API_TOKEN not set in .env")
 
     full_prompt = genre.SD_STYLE_PREFIX + prompt + genre.SD_STYLE_SUFFIX
+    aspect = getattr(genre, "FLUX_ASPECT_RATIO", config.FLUX_ASPECT_RATIO)
     inputs = {
         "prompt": full_prompt,
-        "aspect_ratio": config.FLUX_ASPECT_RATIO,
+        "aspect_ratio": aspect,
         "output_format": config.FLUX_OUTPUT_FORMAT,
         "raw": config.FLUX_RAW_MODE,
         "safety_tolerance": config.FLUX_SAFETY_TOLERANCE,
@@ -242,7 +243,9 @@ def _get_or_fetch_scene_image(scene: dict, out_path: Path, genre) -> tuple[Path,
     # 2) Web検索 (Unsplash → Pexels)
     keyword = scene.get("image_search_keyword") or ""
     if keyword.strip():
-        attribution = web_image_search.search_and_download(keyword, out_path)
+        # ジャンルが横画面なら landscape、それ以外は portrait
+        orientation = "landscape" if getattr(genre, "VIDEO_WIDTH", 0) > getattr(genre, "VIDEO_HEIGHT", 1) else "portrait"
+        attribution = web_image_search.search_and_download(keyword, out_path, prefer_orientation=orientation)
         if attribution is not None:
             return out_path, attribution
 

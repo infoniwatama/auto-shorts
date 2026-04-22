@@ -43,10 +43,17 @@ FLUX_OUTPUT_FORMAT = "jpg"
 FLUX_RAW_MODE = False     # True にするとシネマティックLUTを外して素のリアル感
 FLUX_SAFETY_TOLERANCE = 6  # 1-6, 高いほど寛容（ニュース系は誤検出されやすいので最大）
 
-# ===== 動画 =====
+# ===== 動画（デフォルトはShorts縦9:16、ジャンルでoverride可） =====
 VIDEO_WIDTH = 1080
 VIDEO_HEIGHT = 1920
 VIDEO_FPS = 30
+
+
+def video_dims(genre) -> tuple[int, int]:
+    """ジャンル設定があればそれを優先（mystery等の長尺横画面用）"""
+    w = getattr(genre, "VIDEO_WIDTH", VIDEO_WIDTH)
+    h = getattr(genre, "VIDEO_HEIGHT", VIDEO_HEIGHT)
+    return w, h
 
 # ===== 立ち絵（キャラクターオーバーレイ） =====
 CHARACTER_BASE = ROOT / "assets" / "characters"   # ジャンル別キャラ画像
