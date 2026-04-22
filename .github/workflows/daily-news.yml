@@ -21,6 +21,9 @@ on:
           - unlisted
           - public
 
+permissions:
+  contents: write   # posted_history.json を push し直すため
+
 jobs:
   generate-and-upload:
     runs-on: ubuntu-latest
@@ -127,3 +130,16 @@ jobs:
           path: |
             ${{ steps.rundir.outputs.path }}
           retention-days: 7
+
+      - name: Commit posted_history.json back to repo
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet posted_history.json; then
+            echo "No changes to history"
+          else
+            git add posted_history.json
+            git commit -m "chore: update posted_history (run ${{ github.run_id }})"
+            git push
+          fi

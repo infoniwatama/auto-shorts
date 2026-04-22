@@ -109,8 +109,8 @@ def run(genre_name: str, theme: str | None = None, existing_script_path: str | N
         f"📡 {title}",
         "",
         sep,
-        "  AI速報 / AI Flash News",
-        "  AIが届ける、30秒ニュース。",
+        "  60秒ニュース速報 / Flash News",
+        "  AIが届ける、世界の今を60秒で。",
         sep,
         "",
         "▼ 本日のヘッドライン",
@@ -141,6 +141,26 @@ def run(genre_name: str, theme: str | None = None, existing_script_path: str | N
 
     (run_dir / "script.json").write_text(
         json.dumps(script, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8",
+    )
+
+    # 投稿履歴を更新（next runで重複ネタを避けるため）
+    history_path = config.ROOT / "posted_history.json"
+    try:
+        history = json.loads(history_path.read_text(encoding="utf-8"))
+    except Exception:
+        history = {"posted": []}
+    history["posted"].append({
+        "posted_at": datetime.now().isoformat(),
+        "timestamp": ts,
+        "title": script.get("title_candidates", [""])[0],
+        "theme": script["_meta"].get("theme", "")[:200],
+        "thumbnail_text": script.get("thumbnail_text", ""),
+    })
+    # 最新100件だけ残す
+    history["posted"] = history["posted"][-100:]
+    history_path.write_text(
+        json.dumps(history, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 

@@ -95,6 +95,31 @@ ICON_PROMPTS = {
         "rectangular badge attached to the mic head showing white bold letters "
         "'AI', professional broadcast news logo, clean iconic vector style, "
         "centered composition, pure black background, flat design",
+
+    # === 60秒ニュース速報 / Flash News 用 (v7-v10) ===
+    "icon_v7_60s_red.jpg":
+        "bold logo design with bright red rounded square background filling "
+        "most of the frame, large white sans-serif numbers '60' centered with "
+        "small white letter 's' top right corner, breaking news broadcast style, "
+        "centered on pure black background, iconic flat design, strong contrast",
+
+    "icon_v8_stopwatch.jpg":
+        "stopwatch silhouette icon in white with a red glowing tip on the "
+        "second hand pointing to 12, news ticker style red horizontal bar "
+        "across the bottom, professional broadcast logo, pure black background, "
+        "clean iconic flat vector style, centered",
+
+    "icon_v9_flash_lightning.jpg":
+        "bold yellow lightning bolt icon overlapping a red rectangular news "
+        "ticker badge with white text 'NEWS' visible, dramatic broadcast "
+        "graphic, pure black background, centered iconic composition, "
+        "strong contrast flat design",
+
+    "icon_v10_clock_red.jpg":
+        "minimalist clock face icon, white circle with red hands pointing to "
+        "12 and 60-second markers, breaking news red ribbon banner across "
+        "the middle, bold professional broadcast style, pure black background, "
+        "centered iconic, clean flat vector",
 }
 
 
