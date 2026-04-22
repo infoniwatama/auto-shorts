@@ -127,7 +127,7 @@ def run(genre_name: str, theme: str | None = None, existing_script_path: str | N
         "　テック、経済、政治、エンタメ、国際、社会——",
         "　ジャンル問わず、今この瞬間を速く、客観的に。",
         "",
-        "#ニュース #速報 #Shorts #2026 #最新ニュース #60秒",
+        "#Shorts #ニュース速報 #60秒",
         "",
         sep,
     ]

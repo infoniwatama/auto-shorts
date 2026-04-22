@@ -34,7 +34,7 @@ CLIENT_SECRET = config.ROOT / "client_secret.json"
 TOKEN_PATH = config.ROOT / "token.json"
 
 CATEGORY_SCIENCE_TECH = "28"   # YouTube Category ID: 科学と技術
-DEFAULT_TAGS = ["AI", "AIニュース", "テクノロジー", "AI業界", "最新AI", "Shorts"]
+DEFAULT_TAGS = ["ニュース速報", "60秒ニュース", "Shorts", "FlashNews"]
 
 
 def get_authenticated_service():
