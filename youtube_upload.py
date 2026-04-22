@@ -140,7 +140,8 @@ def upload(run: dict, title: str, privacy: str, schedule_iso: str | None = None,
     print(f"✅ アップ完了: https://youtu.be/{video_id}")
 
     # サムネ設定（失敗してもメインは成功扱いにする）
-    if run["thumb"]:
+    # サムネファイルが存在する場合のみ実行（生成スキップ時はNone）
+    if run["thumb"] and run["thumb"].exists():
         print(f"🖼️  サムネ設定中: {run['thumb'].name}")
         try:
             thumb_path = run["thumb"]

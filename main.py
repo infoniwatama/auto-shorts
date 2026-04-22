@@ -9,6 +9,7 @@ import argparse
 import json
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # Windows cp932 対策: stdout/stderrをUTF-8に
@@ -90,9 +91,10 @@ def run(genre_name: str, theme: str | None = None, existing_script_path: str | N
     out_video = run_dir / f"{ts}_shorts.mp4"
     video_assemble.assemble(script, audio_map, image_map, out_video, genre)
 
-    print("🖼️ サムネ自動生成中（下書き、本投稿前に手調整推奨）...")
+    # サムネ自動生成はスキップ（YouTube側で動画から自動選出 or 手動設定）
     out_thumb = run_dir / f"{ts}_thumb.png"
-    thumbnail_gen.generate_thumbnail(script, image_map, out_thumb, genre)
+    if False:  # disabled
+        thumbnail_gen.generate_thumbnail(script, image_map, out_thumb, genre)
 
     # YouTube概要欄（スタイリッシュ版）
     import web_image_search as _wis
