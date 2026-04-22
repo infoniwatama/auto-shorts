@@ -146,11 +146,8 @@ def run(genre_name: str, theme: str | None = None, existing_script_path: str | N
         encoding="utf-8",
     )
 
-    # 投稿履歴を更新（next runで重複ネタを避けるため、ジャンル別に分離）
-    if genre.NAME == "mystery":
-        history_path = config.ROOT / "mystery_history.json"
-    else:
-        history_path = config.ROOT / "posted_history.json"
+    # 投稿履歴を更新（next runで重複ネタを避けるため）
+    history_path = config.ROOT / "posted_history.json"
     try:
         history = json.loads(history_path.read_text(encoding="utf-8"))
     except Exception:
