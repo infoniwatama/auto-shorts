@@ -459,9 +459,11 @@ def _build_scene(scene: dict, image_path: Path, audio_path: Path, genre) -> Comp
     sfx_path = _pick_sfx(sfx_name, genre)
     if sfx_path is not None:
         try:
+            sfx_clip = AudioFileClip(str(sfx_path))
+            # SFX 自体の長さを超えて再生しない（EOFエラー回避）
+            target = max(0.1, min(duration, float(sfx_clip.duration), 2.5) - 0.05)
             sfx_audio = (
-                AudioFileClip(str(sfx_path))
-                .with_duration(min(duration, 2.5))
+                sfx_clip.subclipped(0, target)
                 .with_effects([afx.MultiplyVolume(config.SFX_VOLUME)])
             )
             audio_layers.append(sfx_audio)
