@@ -32,6 +32,11 @@ env:
 permissions:
   contents: write   # posted_history.json を push し直すため
 
+# 同時実行を1本に制限し、複数トリガーされた場合は順次実行（重複ネタ回避のため）
+concurrency:
+  group: daily-news-generation
+  cancel-in-progress: false
+
 jobs:
   generate-and-upload:
     runs-on: ubuntu-latest
