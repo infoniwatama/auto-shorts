@@ -12,7 +12,7 @@ on:
         required: false
         default: ''
       privacy:
-        description: '公開設定'
+        description: '公開設定（schedule 指定時は private 必須）'
         required: true
         default: 'private'
         type: choice
@@ -20,6 +20,14 @@ on:
           - private
           - unlisted
           - public
+      publish_at_jst:
+        description: '公開時刻 JST（HH:MM、空白なら即時公開）。例: 19:00 で当日19時公開予約'
+        required: false
+        default: '19:00'
+
+env:
+  # cron 実行時のデフォルト公開時刻（JST）
+  DEFAULT_PUBLISH_AT_JST: "19:00"
 
 permissions:
   contents: write   # posted_history.json を push し直すため
@@ -118,9 +126,42 @@ jobs:
           if [ -z "$P" ]; then P=private; fi
           echo "value=$P" >> "$GITHUB_OUTPUT"
 
+      - name: Compute schedule timestamp
+        id: schedule
+        run: |
+          # 公開時刻取得（手動 input → cron時のデフォルト の順）
+          PUB='${{ github.event.inputs.publish_at_jst }}'
+          if [ -z "$PUB" ]; then PUB="$DEFAULT_PUBLISH_AT_JST"; fi
+          if [ -z "$PUB" ]; then
+            echo "value=" >> "$GITHUB_OUTPUT"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "（即時公開）"
+            exit 0
+          fi
+          # 当日 JST の指定時刻に予約。過去なら翌日に繰越
+          NOW_JST=$(TZ=Asia/Tokyo date +%s)
+          TARGET_JST=$(TZ=Asia/Tokyo date -d "today $PUB" +%s 2>/dev/null \
+                       || TZ=Asia/Tokyo date -d "$PUB" +%s)
+          if [ "$TARGET_JST" -le "$NOW_JST" ]; then
+            TARGET_JST=$(TZ=Asia/Tokyo date -d "tomorrow $PUB" +%s)
+          fi
+          # RFC3339 (+09:00) で出力
+          ISO=$(TZ=Asia/Tokyo date -d "@$TARGET_JST" --rfc-3339=seconds | sed 's/ /T/')
+          echo "value=$ISO" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "予約公開: $ISO"
+
       - name: Upload to YouTube
         run: |
-          python youtube_upload.py "${{ steps.rundir.outputs.path }}" --privacy "${{ steps.privacy.outputs.value }}"
+          if [ "${{ steps.schedule.outputs.skip }}" = "true" ]; then
+            python youtube_upload.py "${{ steps.rundir.outputs.path }}" \
+              --privacy "${{ steps.privacy.outputs.value }}"
+          else
+            # スケジュール指定時は privacy を private に強制（YouTubeの仕様）
+            python youtube_upload.py "${{ steps.rundir.outputs.path }}" \
+              --privacy private \
+              --schedule "${{ steps.schedule.outputs.value }}"
+          fi
 
       - name: Save outputs as artifact (debug用)
         if: always()
