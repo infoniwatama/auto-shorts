@@ -1,9 +1,19 @@
 name: Daily AI Flash News
 
 on:
-  # 毎朝 6:00 JST = 21:00 UTC（前日）
+  # 1日5回生成＆公開（JST基準 / UTCで記述）
+  # 生成開始時刻 → 公開予約（ピーク時刻）
+  # 06:30→07:00（朝の通勤・朝活）
+  # 11:30→12:00（昼休み）
+  # 16:30→17:00（夕方・下校）
+  # 19:00→19:30（ゴールデンタイム）
+  # 21:30→22:00（夜ピーク）
   schedule:
-    - cron: "0 21 * * *"
+    - cron: "30 21 * * *"   # 06:30 JST
+    - cron: "30 2 * * *"    # 11:30 JST
+    - cron: "30 7 * * *"    # 16:30 JST
+    - cron: "0 10 * * *"    # 19:00 JST
+    - cron: "30 12 * * *"   # 21:30 JST
   # 手動トリガー（テーマを直接指定可能）
   workflow_dispatch:
     inputs:
@@ -21,13 +31,13 @@ on:
           - unlisted
           - public
       publish_at_jst:
-        description: '公開時刻 JST（HH:MM、空白なら即時公開）。例: 19:00 で当日19時公開予約'
+        description: '公開時刻 JST（HH:MM、空白 or "auto" で現在時刻+30分）。例: 19:30'
         required: false
-        default: '19:00'
+        default: 'auto'
 
 env:
-  # cron 実行時のデフォルト公開時刻（JST）
-  DEFAULT_PUBLISH_AT_JST: "19:00"
+  # cron 実行時はデフォルト "auto"（現在JST時刻+30分で公開予約）
+  DEFAULT_PUBLISH_AT_JST: "auto"
 
 permissions:
   contents: write   # posted_history.json を push し直すため
@@ -143,12 +153,16 @@ jobs:
             echo "（即時公開）"
             exit 0
           fi
-          # 当日 JST の指定時刻に予約。過去なら翌日に繰越
           NOW_JST=$(TZ=Asia/Tokyo date +%s)
-          TARGET_JST=$(TZ=Asia/Tokyo date -d "today $PUB" +%s 2>/dev/null \
-                       || TZ=Asia/Tokyo date -d "$PUB" +%s)
-          if [ "$TARGET_JST" -le "$NOW_JST" ]; then
-            TARGET_JST=$(TZ=Asia/Tokyo date -d "tomorrow $PUB" +%s)
+          # "auto" なら現在JST時刻 + 30分後
+          if [ "$PUB" = "auto" ]; then
+            TARGET_JST=$((NOW_JST + 1800))
+          else
+            TARGET_JST=$(TZ=Asia/Tokyo date -d "today $PUB" +%s 2>/dev/null \
+                         || TZ=Asia/Tokyo date -d "$PUB" +%s)
+            if [ "$TARGET_JST" -le "$NOW_JST" ]; then
+              TARGET_JST=$(TZ=Asia/Tokyo date -d "tomorrow $PUB" +%s)
+            fi
           fi
           # RFC3339 (+09:00) で出力
           ISO=$(TZ=Asia/Tokyo date -d "@$TARGET_JST" --rfc-3339=seconds | sed 's/ /T/')

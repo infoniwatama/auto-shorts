@@ -120,6 +120,31 @@ ICON_PROMPTS = {
         "12 and 60-second markers, breaking news red ribbon banner across "
         "the middle, bold professional broadcast style, pure black background, "
         "centered iconic, clean flat vector",
+
+    # === 夜の覗き窓 / Mystery Files 用 (m1-m4) ===
+    "icon_m1_window_eye.jpg":
+        "minimalist dark logo, single glowing red eye peering through a "
+        "narrow vertical window slit at night, deep black background, "
+        "mysterious atmosphere, simple iconic flat design, centered "
+        "composition, horror documentary brand mark",
+
+    "icon_m2_keyhole.jpg":
+        "iconic logo of an old vintage keyhole shape in white outline with "
+        "an orange-red glow leaking through it, pure black background, "
+        "mysterious peek-through concept, clean flat minimalist design, "
+        "centered, professional channel mark for urban legends",
+
+    "icon_m3_curtain_silhouette.jpg":
+        "dark window with parted curtains revealing a single eerie silhouette "
+        "of a figure standing in dim red light, minimalist flat vector style, "
+        "pure black background, mysterious horror brand logo, centered iconic "
+        "composition",
+
+    "icon_m4_moon_window.jpg":
+        "stylized old wooden window frame at night with a full moon visible, "
+        "single red glowing dot like a watching eye in the corner, dark blue "
+        "and black tones, mysterious gothic atmosphere, flat iconic logo "
+        "design, centered composition",
 }
 
 
