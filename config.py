@@ -73,6 +73,29 @@ SUBTITLE_FONT_SIZE = 70
 SUBTITLE_STROKE_WIDTH = 5
 SUBTITLE_Y_RATIO = 0.50  # 画面中央
 
+# === フック専用テロップ（インパクト最大化用） ===
+# 851チカラヅヨク かなA = TikTok/Shorts定番のインパクトフォント
+# 太い・荒削り・手書き風で速報感MAX、漢字14963字フルカバー、商用可・改変可
+SUBTITLE_FONT_HOOK = str(ROOT / "assets" / "fonts" / "851CHIKARA-DZUYOKU_kanaA.ttf")
+SUBTITLE_FONT_SIZE_HOOK = 130    # 大きめ（130）でドカン
+SUBTITLE_STROKE_WIDTH_HOOK = 10  # 太い縁取りで視認性 MAX
+SUBTITLE_Y_RATIO_HOOK = 0.42     # 中央より上にしてバナーと干渉回避
+
+# === BREAKING NEWS バナー（hookシーン上部に重ねる赤帯） ===
+# 「速報」のみ表示（漢字フルカバーで文字化けゼロ）
+HOOK_BANNER_ENABLED = True
+HOOK_BANNER_TEXT = "速報"
+HOOK_BANNER_COLOR = (220, 30, 30)         # 緊急感の濃い赤
+HOOK_BANNER_TEXT_COLOR = "white"
+HOOK_BANNER_HEIGHT_RATIO = 0.10           # 画面高の10%
+HOOK_BANNER_Y_RATIO = 0.10                # 上から10%地点
+HOOK_BANNER_FONT_SIZE = 95                # 「速報」だけなら大きめでドカン
+
+# === フックテロップの色（hookだけ目立たせる） ===
+# 通常テロップは白、hookは「警告イエロー」で視覚インパクト最大化
+HOOK_SUBTITLE_COLOR = "#FFE633"           # ビビッドなネオンイエロー
+HOOK_SUBTITLE_STROKE_COLOR = "#B30000"    # 濃赤の縁取りで「速報感」
+
 # Ken Burns（より強めのズームで動き感UP）
 KEN_BURNS_ZOOM_START = 1.0
 KEN_BURNS_ZOOM_END = 1.18

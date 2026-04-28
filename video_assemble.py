@@ -309,26 +309,53 @@ def _ken_burns_clip(image_path: Path, duration: float, zoom_in: bool = True) -> 
     return composed
 
 
-def _subtitle_clip(text: str, duration: float, genre):
-    """強調ワード対応の字幕クリップ。**word** で強調、シェイク有無は genre 設定。"""
+def _subtitle_clip(text: str, duration: float, genre, emotion: str = "normal"):
+    """強調ワード対応の字幕クリップ。**word** で強調、シェイク有無は genre 設定。
+    emotion="hook" の場合はインパクト重視のフックフォント＋拡大表示にする。"""
     if not text.strip():
         return None
 
+    is_hook = emotion == "hook"
+    font_size = (config.SUBTITLE_FONT_SIZE_HOOK
+                 if is_hook else config.SUBTITLE_FONT_SIZE)
+    stroke_w = (config.SUBTITLE_STROKE_WIDTH_HOOK
+                if is_hook else config.SUBTITLE_STROKE_WIDTH)
+    # フックは Reggae One（太い display フォント）、それ以外は Noto Sans JP
+    font_path = (getattr(config, "SUBTITLE_FONT_HOOK", config.SUBTITLE_FONT)
+                 if is_hook else config.SUBTITLE_FONT)
+    # フックは画面上部寄り（バナーと重ならない位置）、それ以外は中央
+    y_ratio = (getattr(config, "SUBTITLE_Y_RATIO_HOOK", config.SUBTITLE_Y_RATIO)
+               if is_hook else config.SUBTITLE_Y_RATIO)
+
+    # フックは特別カラーで目を引く（黄+赤縁取り）。それ以外はジャンル既定。
+    if is_hook:
+        normal_color = getattr(config, "HOOK_SUBTITLE_COLOR", genre.SUBTITLE_COLOR)
+        stroke_color = getattr(config, "HOOK_SUBTITLE_STROKE_COLOR",
+                               genre.SUBTITLE_STROKE_COLOR)
+        # フック中の **強調** はさらに白で抜くと黄背景に映える
+        emphasis_color = "white"
+    else:
+        normal_color = genre.SUBTITLE_COLOR
+        stroke_color = genre.SUBTITLE_STROKE_COLOR
+        emphasis_color = getattr(genre, "SUBTITLE_EMPHASIS_COLOR",
+                                 genre.SUBTITLE_COLOR)
+
     img = render_subtitle_image(
         text=text,
-        font_path=config.SUBTITLE_FONT,
-        font_size=config.SUBTITLE_FONT_SIZE,
+        font_path=font_path,
+        font_size=font_size,
         max_width=config.VIDEO_WIDTH - 80,
-        normal_color=genre.SUBTITLE_COLOR,
-        emphasis_color=getattr(genre, "SUBTITLE_EMPHASIS_COLOR", genre.SUBTITLE_COLOR),
-        stroke_color=genre.SUBTITLE_STROKE_COLOR,
-        stroke_width=config.SUBTITLE_STROKE_WIDTH,
-        font_weight=getattr(config, "SUBTITLE_FONT_WEIGHT", None),
+        normal_color=normal_color,
+        emphasis_color=emphasis_color,
+        stroke_color=stroke_color,
+        stroke_width=stroke_w,
+        # 851チカラヅヨクは固定ウェイトなので variable axis 指定は不要
+        font_weight=None if is_hook else getattr(config, "SUBTITLE_FONT_WEIGHT", None),
     )
     arr = np.array(img)
     clip = ImageClip(arr).with_duration(duration)
 
-    y_base = int(config.VIDEO_HEIGHT * config.SUBTITLE_Y_RATIO) - arr.shape[0] // 2
+    y_base = int(config.VIDEO_HEIGHT * y_ratio) - arr.shape[0] // 2
     has_emphasis = "**" in text
     shake_enabled = getattr(genre, "SUBTITLE_EMPHASIS_SHAKE", False)
 
@@ -348,6 +375,47 @@ def _subtitle_clip(text: str, duration: float, genre):
         clip = clip.with_position(("center", y_base))
 
     return clip
+
+
+def _hook_banner_clip(duration: float):
+    """hookシーン上部に重ねる「🚨 速報」赤帯バナー"""
+    if not getattr(config, "HOOK_BANNER_ENABLED", False):
+        return None
+    from PIL import Image, ImageDraw, ImageFont
+    h = int(config.VIDEO_HEIGHT * config.HOOK_BANNER_HEIGHT_RATIO)
+    w = config.VIDEO_WIDTH
+    img = Image.new("RGBA", (w, h), config.HOOK_BANNER_COLOR + (235,))
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype(
+            getattr(config, "SUBTITLE_FONT_HOOK", config.SUBTITLE_FONT),
+            config.HOOK_BANNER_FONT_SIZE,
+        )
+    except Exception:
+        font = ImageFont.load_default()
+    text = config.HOOK_BANNER_TEXT
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    draw.text(
+        ((w - tw) // 2 - bbox[0], (h - th) // 2 - bbox[1]),
+        text,
+        fill=config.HOOK_BANNER_TEXT_COLOR,
+        font=font,
+        stroke_width=3,
+        stroke_fill="black",
+    )
+    arr = np.array(img)
+    clip = ImageClip(arr).with_duration(duration)
+    y = int(config.VIDEO_HEIGHT * config.HOOK_BANNER_Y_RATIO)
+
+    # 最初の0.4秒で上からスライドイン
+    def pos_fn(t):
+        if t < 0.4:
+            offset = int((1 - t / 0.4) * h)
+            return (0, y - offset)
+        return (0, y)
+
+    return clip.with_position(pos_fn)
 
 
 def _flash_clip(duration: float = 0.15) -> ColorClip:
@@ -436,9 +504,15 @@ def _build_scene(scene: dict, image_path: Path, audio_path: Path, genre) -> Comp
     if char is not None:
         layers.append(char)
 
-    sub = _subtitle_clip(scene.get("narration", ""), duration, genre)
+    sub = _subtitle_clip(scene.get("narration", ""), duration, genre, emotion=emotion)
     if sub is not None:
         layers.append(sub)
+
+    # hookシーン上部に🚨速報バナーを重ねる（インパクト最大化）
+    if emotion == "hook":
+        banner = _hook_banner_clip(duration)
+        if banner is not None:
+            layers.append(banner)
 
     composite = CompositeVideoClip(
         layers,
@@ -487,24 +561,82 @@ def _silence_pad(duration: float, image_path: Path) -> CompositeVideoClip:
     ).with_duration(duration)
 
 
+# 各SFX名 → 候補ファイル名のリスト。実在するもののみが使われ、複数あれば毎回ランダムに選ぶ。
+_SFX_ALIAS = {
+    # === スキーマ標準名（プロンプトが出すもの） ===
+    "impact_drum": ["se_don", "se_dodon", "se_don_1", "se_jidai_geki"],
+    "breaking_alert": ["se_dora", "ショック1", "se_dondonpafupafu_2025"],
+    "dramatic_riser": ["se_ga_n", "Inspiration08-1(Low)", "Inspiration08-2(Low-Delay)", "Inspiration05-3(High)"],
+    "reveal_chime": ["se_VFR_jan", "se_VFR_chararira", "se_VFR_chime", "キラッ2"],
+    "camera_shutter": ["se_VFR_Flash06_1"],
+    "suspense_drone": ["Inspiration08-1(Low)", "Inspiration08-2(Low-Delay)", "Inspiration08-4(High)"],
+    "typing_keyboard": ["se_VFR_kin", "se_VFR_syakin"],
+    "swoosh_transition": ["se_VFR_swish_1", "se_VFR_swish_2", "se_VFR_swish_3", "se_VFR_swish_4",
+                           "se_VFR_hyu_n1", "se_VFR_hyu_n2", "se_bamentenkan"],
+    "glitch_news": ["se_VFR_kin", "se_VFR_syakin", "se_VFR_syakin2"],
+    "warning_beep": ["決定ボタンを押す22", "se_VFR_chime"],
+    # === 旧名（後方互換） ===
+    "ding": ["se_VFR_chime", "ding"],
+    "whoosh": ["se_VFR_swish_1", "se_VFR_swish_2", "se_VFR_hyu_n1", "whoosh"],
+    "pop": ["se_VFR_Pop01_1", "pop"],
+    "notification": ["キラッ2", "se_VFR_chime", "notification"],
+    "breaking": ["se_dora", "ショック1", "breaking"],
+}
+
+
 def _pick_sfx(name: str, genre) -> Path | None:
     if name in ("none", "silence", None, ""):
         return None
     sfx_dir = config.genre_sfx_dir(genre.NAME)
-    for ext in ("mp3", "wav", "ogg", "m4a"):
-        p = sfx_dir / f"{name}.{ext}"
-        if p.exists():
-            return p
-    return None
+    candidates_raw = _SFX_ALIAS.get(name, name)
+    if isinstance(candidates_raw, str):
+        candidates_raw = [candidates_raw]
+    candidates_raw = list(candidates_raw) + [name]
+    # 実在するファイルだけを集めてランダム選択（バリエーション化）
+    existing = []
+    for cand in candidates_raw:
+        for ext in ("mp3", "wav", "ogg", "m4a"):
+            p = sfx_dir / f"{cand}.{ext}"
+            if p.exists() and p not in existing:
+                existing.append(p)
+    if not existing:
+        return None
+    return random.choice(existing)
 
 
-def _pick_bgm(genre) -> Path | None:
+def _pick_bgm(genre, script: dict | None = None) -> Path | None:
+    """script._meta.bgm_mood に応じてジャンル別BGMを選定。
+    _meta.json があればムードタグでフィルタ、なければ全候補からランダム。"""
     bgm_dir = config.genre_bgm_dir(genre.NAME)
     candidates = []
     for ext in ("mp3", "wav", "ogg", "m4a"):
         candidates.extend(bgm_dir.glob(f"*.{ext}"))
+    candidates = [p for p in candidates if not p.name.startswith("_")]
     if not candidates:
         return None
+
+    # ムード絞り込み
+    mood = None
+    if script:
+        mood = (script.get("_meta", {}) or {}).get("bgm_mood") \
+            or script.get("bgm_mood")
+    meta_path = bgm_dir / "_meta.json"
+    if mood and meta_path.exists():
+        try:
+            import json as _json
+            meta = _json.loads(meta_path.read_text(encoding="utf-8"))
+            tag_map = meta.get("tracks", {}) or {}
+            matched = [
+                p for p in candidates
+                if mood in (tag_map.get(p.name, []) or [])
+            ]
+            if matched:
+                print(f"  [bgm] mood='{mood}' → {len(matched)}/{len(candidates)} 候補")
+                candidates = matched
+            else:
+                print(f"  [bgm] mood='{mood}' 該当なし→全候補から選定")
+        except Exception as e:
+            print(f"  [bgm] _meta.json 読込失敗: {e}")
     return random.choice(candidates)
 
 
@@ -541,7 +673,7 @@ def assemble(script: dict, audio_map: dict, image_map: dict, out_path: Path, gen
 
     video = concatenate_videoclips(scene_clips, method="compose", padding=-config.TRANSITION_DURATION)
 
-    bgm_path = _pick_bgm(genre)
+    bgm_path = _pick_bgm(genre, script)
     if bgm_path is not None:
         try:
             bgm = (

@@ -42,7 +42,8 @@ def run(genre_name: str, theme: str | None = None, existing_script_path: str | N
     config.ensure_dirs()
     genre = load_genre(genre_name)
 
-    if not tts.voicevox_alive():
+    # --script 再生成時は音声キャッシュがあるため VOICEVOX なしでも進める
+    if not existing_script_path and not tts.voicevox_alive():
         print(f"❌ VOICEVOX が起動していません ({config.VOICEVOX_HOST})")
         print("   VOICEVOXアプリを起動してから再実行してください")
         sys.exit(1)
@@ -74,6 +75,26 @@ def run(genre_name: str, theme: str | None = None, existing_script_path: str | N
         print(f"   タイトル候補: {script['title_candidates']}")
         print(f"   サムネ煽り: {script['thumbnail_text']}")
         print(f"   シーン数: {len(script['scenes'])}")
+
+        # 履歴をここで即記録（動画生成やアップロードが失敗しても再選定されないように）
+        history_path = config.ROOT / "posted_history.json"
+        try:
+            history = json.loads(history_path.read_text(encoding="utf-8"))
+        except Exception:
+            history = {"posted": []}
+        history["posted"].append({
+            "posted_at": datetime.now().isoformat(),
+            "timestamp": script["_meta"]["timestamp"],
+            "title": script.get("title_candidates", [""])[0],
+            "theme": (theme or "")[:300],
+            "thumbnail_text": script.get("thumbnail_text", ""),
+        })
+        history["posted"] = history["posted"][-100:]
+        history_path.write_text(
+            json.dumps(history, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print(f"   📚 履歴に記録しました（同ネタは今後選ばれません）")
 
     ts = script["_meta"]["timestamp"]
     run_dir = config.OUT_VIDEOS / ts
@@ -112,7 +133,7 @@ def run(genre_name: str, theme: str | None = None, existing_script_path: str | N
         "",
         sep,
         "  60秒ニュース速報 / Flash News",
-        "  世界の今を、60秒で。",
+        "  世界の今を、30秒で。",
         sep,
         "",
         "▼ 本日のヘッドライン",
@@ -123,11 +144,11 @@ def run(genre_name: str, theme: str | None = None, existing_script_path: str | N
         "",
         "▼ このチャンネルについて",
         "　世界中のニュースを厳選・要約し、",
-        "　60秒の報道調ショートにまとめてお届け。",
+        "　30秒の報道調ショートにまとめてお届け。",
         "　テック、経済、政治、エンタメ、国際、社会——",
         "　ジャンル問わず、今この瞬間を速く、客観的に。",
         "",
-        "#Shorts #ニュース速報 #60秒",
+        "#Shorts #ニュース速報 #30秒",
         "",
         sep,
     ]
@@ -143,26 +164,6 @@ def run(genre_name: str, theme: str | None = None, existing_script_path: str | N
 
     (run_dir / "script.json").write_text(
         json.dumps(script, ensure_ascii=False, indent=2, default=str),
-        encoding="utf-8",
-    )
-
-    # 投稿履歴を更新（next runで重複ネタを避けるため）
-    history_path = config.ROOT / "posted_history.json"
-    try:
-        history = json.loads(history_path.read_text(encoding="utf-8"))
-    except Exception:
-        history = {"posted": []}
-    history["posted"].append({
-        "posted_at": datetime.now().isoformat(),
-        "timestamp": ts,
-        "title": script.get("title_candidates", [""])[0],
-        "theme": script["_meta"].get("theme", "")[:200],
-        "thumbnail_text": script.get("thumbnail_text", ""),
-    })
-    # 最新100件だけ残す
-    history["posted"] = history["posted"][-100:]
-    history_path.write_text(
-        json.dumps(history, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 

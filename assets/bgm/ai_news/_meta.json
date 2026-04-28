@@ -1,0 +1,23 @@
+{
+  "_comment": "BGMムードタグ。news系として厳選。映画/ファンタジー/暗い系は news で使わない。",
+  "tracks": {
+    "musicgen_tense_breaking.mp3": ["breaking", "tech"],
+    "musicgen_breaking_drums.mp3": ["breaking", "scandal"],
+    "musicgen_modern_underscore.mp3": ["tech", "investigation", "general"],
+    "musicgen_investigative.mp3": ["investigation", "scandal"],
+    "Digital_Massive.mp3": ["breaking", "tech", "general"],
+    "The_Sniper.mp3": ["breaking", "investigation", "scandal"],
+    "bgm_dova_Examine.mp3": ["investigation", "scandal"],
+    "bgm_dova_Phantom.mp3": ["investigation", "scandal"],
+    "bgm_dova_taiketsu.mp3": ["scandal", "breaking"],
+    "bgm_dova_toshidensetsu.mp3": ["investigation"],
+    "bgm_VFR_Teeth.mp3": ["breaking", "tech"],
+    "bgm_VFR_zensen_he_totugekiseyo.mp3": ["breaking"],
+
+    "Poseidon.mp3": ["lifestyle"],
+    "bgm_dova_orchestral_mission.mp3": ["lifestyle"],
+    "bgm_dova_zanshinen.mp3": ["lifestyle"],
+    "dova_kikagakuteki_miraiyosou.mp3": ["tech", "lifestyle"]
+  },
+  "_notes": "Poseidon/orchestral_mission/zanshinen は映画的すぎてニュースに合わないので breaking/general から外し lifestyle 限定（ほぼ未使用）。"
+}
